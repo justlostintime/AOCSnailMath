@@ -1,0 +1,301 @@
+' Gambas class file
+
+$Value As New String[]                         ' right or left value can be null
+$Left As String[]
+$Right As String[]
+
+
+Property Read value As String[]
+Property Read Left As SnailNumber
+Property Read Right As SnailNumber
+Property Read Magnitude As Long
+
+
+Public Sub _new(Source As Variant)
+  
+  If TypeOf(Source) = gb.string Then 
+      BuildNumber(Source)
+  Else 
+      $Value = Source
+  Endif 
+  
+End
+
+
+Private Function value_Read() As String[]
+
+  Return $Value
+
+End
+
+Sub BuildNumber(Source As String)
+
+  $Value = Highlight.Analyze(source)
+  'remove the out braces we dont need then
+  $Value.remove(0)
+  $Value.Pop()
+  
+End
+
+
+Public Sub Add(snValue As SnailNumber, Optional ShowProgress As Boolean = False) As SnailNumber
+  
+  Dim NewValue As New String[] 
+  If $Value.count = 1 Then
+    NewValue.Push($Value)
+  Else
+    NewValue.Push("[")
+    NewValue.Insert($Value)
+    NewValue.Push("]")
+  Endif
+  
+  NewValue.Push(",")
+  NewValue.Push("[")
+  NewValue.insert(snValue.value)
+  NewValue.Push("]")
+  
+  Dim NewSn As New SnailNumber(NewValue)
+  NewSn.ExpandAndExplode()
+  If ShowProgress Then Print Subst("  : &1\n+ : &2\n= : &3\n", _print(), snValue._print(), NewSn._print())
+  
+  Return NewSN
+  
+End 
+
+Public Sub ExpandAndExplode()
+  
+  Dim Changing As Boolean = True
+  While Changing
+    
+    Dim Exploded As Boolean = LookForExplode()
+    If Exploded Then Continue 
+    
+    Dim Splitting As Boolean = LookForSplit()
+    If Splitting Then Continue 
+    
+    Changing = False
+    
+  Wend
+  
+End
+
+Public Sub _get() As String[]
+  
+  Return $Value
+  
+End
+
+Public Sub _put(snValue As SnailNumber)
+  
+  $Value = snValue.Value
+  
+End
+
+Public Sub _compare(sn As SnailNumber) As Integer
+  
+  Dim left As String = $Value.join("")
+  Dim Right As String = sn.value.join("")
+  
+  If left == right Then Return 0
+  If left < right Then Return -1 
+  Return 1
+End
+
+
+
+Sub LookForSplit() As Boolean
+
+   Dim RecursionLevel As Integer = 0
+   
+   For i As Integer = 0 To $Value.max
+    Select Case $Value[I]
+    Case "[" 
+        Inc RecursionLevel
+    Case "]"
+        Dec RecursionLevel
+    Case ","
+        Continue 
+    Case Else 
+        If IsNumber($Value[i]) And If CInteger($Value[i]) >= 10 Then
+          Dim ileft As Integer = CInteger($Value[i]) \ 2
+          Dim iRight As Integer = CInteger($Value[i]) - ileft
+          $Value[i] = "["
+          $Value.insert([CString(iLeft), ",", CString(iRight), "]"], I + 1)
+          'Print Subst("Split   : &1", _print())
+          Return True
+        Endif
+    End Select 
+  Next
+  Return False
+End
+
+
+Sub LookForExplode() As Boolean 
+  Dim RecursionLevel As Integer = 0
+  For i As Integer = 0 To $Value.max
+    Select Case $Value[I]
+    Case "[" 
+        Inc RecursionLevel
+    Case "]"
+        Dec RecursionLevel
+    Case ","
+        Continue 
+    Case Else 
+        If RecursionLevel = 4 And If I + 2 < $Value.Max And If IsNumber($Value[I + 2]) Then
+            For j As Integer = i - 1 DownTo 0
+              If IsNumber($Value[j]) Then 
+                  $Value[j] = CInteger($Value[j]) + CInteger($Value[i])
+                  Break
+              Endif
+            Next
+            For j = I + 3 To $Value.Max
+              If IsNumber($Value[j]) Then 
+                  $Value[j] = CInteger($Value[j]) + CInteger($Value[i + 2])
+                  Break
+              Endif
+            Next
+            
+            If $Value[I - 1] = "[" Then
+              $Value[i - 1] = "0"
+              For j = i To $Value.max
+                If $Value[j] = "]" Then Break 
+              Next
+              $Value.remove(i, (j - i) + 1)
+              'Print Subst("Explode : &1", _print())
+              Return True
+            Endif
+            
+        Endif
+    End Select 
+  Next
+  Return False
+End
+
+Sub GetMagnitude() As String
+
+  Dim snValue As String[] = ["["]
+  snValue.Insert($Value.Copy())
+  snValue.Push("]")
+  
+  Dim Changed As Boolean = True
+  
+  While Changed 
+    Changed = False
+    Dim I As Integer = 0
+    While i <= snValue.max
+    
+      If I + 4 <= snValue.max And If IsNumber(snValue[I + 1]) And If IsNumber(snValue[I + 3]) Then
+         Dim Accum As Long = (3 * CInt(snValue[I + 1])) + (2 * CInt(snValue[I + 3]))
+        snValue[i] = CStr(Accum)
+        snValue.remove(i + 1, 4)
+        Changed = True
+      Endif
+      Inc I
+    Wend
+    
+  Wend  
+  
+  Return snValue[0]
+End
+
+
+Sub SplitHalves(sValue As String[])
+
+  Dim LevelCount As Integer = 0
+  
+  For I As Integer = 0 To sValue.max
+    
+    Select Case sValue[i]
+      Case ","
+        If LevelCount = 0 Then
+           Break 
+        Endif
+      Case "["
+        Inc LevelCount
+      Case "]"
+        Dec LevelCount
+    End Select 
+    
+  Next
+  
+  If I > sValue.Max Then 
+      Stop
+      Error.Raise("Ouch, No Middle LOL")
+  Endif
+  $Right = sValue.Copy(I + 1, -1)
+  
+  If $Right[0] = "[" Then 
+    $Right.Remove(0)
+    $Right.Pop()
+  Endif
+  
+  $Left = sValue.Copy(0, I)
+  If $Left[0] = "[" Then 
+    $Left.Remove(0)
+    $Left.Pop()
+  Endif
+  
+End
+
+Private Sub left_read() As SnailNumber
+  
+  If $left = Null Then
+    SplitHalves($Value)
+  Endif
+  
+  Return New SnailNumber($left)
+  
+End
+
+Private Sub right_read() As SnailNumber
+  
+  If $Right = Null Then
+    SplitHalves($Value)
+  Endif
+  
+  Return New SnailNumber($Right)
+  
+End
+
+Public Sub _print() As String
+   Return "[" & $Value.join("") & "]"
+End
+
+
+Public Sub PrettyPrint()
+  Dim IndentCount As Integer = 0
+  Dim FirstPart As Boolean = True
+  For I As Integer = 0 To $Value.max 
+    Select Case $Value[I]
+      Case "["
+        FirstPart = True
+        Print Format(I, "##0");; IndentCount; Space(IndentCount); "["
+        Inc IndentCount
+      Case "]"
+        Dec IndentCount
+        Print Format(I, "##0");; IndentCount; Space(IndentCount); "]"
+      Case ","
+        If $Value[I + 1] = "[" Or If $Value[I - 1] = "]" Then 
+           Print Format(I, "##0");; IndentCount; Space(IndentCount); ","
+           FirstPart = True
+        Else 
+          Print ",";
+        Endif
+      Case Else 
+        If FirstPart Then Print Format(I, "##0");; IndentCount; Space(IndentCount);
+        Print $Value[I];
+        If $Value[i + 1] = "]" Or If I + 2 < $Value.Max And $Value[I + 2] = "[" Then Print
+        FirstPart = False
+    End Select
+    
+  Next
+  
+End
+
+Private Function Magnitude_Read() As Long
+
+  Dim Result As String
+  result = GetMagnitude()
+  Return CLong(result)
+
+End
